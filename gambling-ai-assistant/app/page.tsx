@@ -1,69 +1,50 @@
-import Image from "next/image";
+"use client";
+
+import { useMemo, useState } from "react";
+
+type Pick = { id: string; game: string; name: string; detail: string; odds: string };
+type Game = { id: string; league: string; time: string; away: string; awayCode: string; home: string; homeCode: string; awayRecord: string; homeRecord: string; colorA: string; colorH: string; spread: [string, string]; moneyline: [string, string]; total: [string, string] };
+
+const games: Game[] = [
+  { id: "nba1", league: "NBA", time: "TODAY · 7:30 PM", away: "New York", awayCode: "NYK", home: "Boston", homeCode: "BOS", awayRecord: "48-28", homeRecord: "54-22", colorA: "#e77527", colorH: "#df9a65", spread: ["+5.5", "-5.5"], moneyline: ["+185", "-225"], total: ["O 221.5", "U 221.5"] },
+  { id: "nba2", league: "NBA", time: "TODAY · 10:00 PM", away: "Golden State", awayCode: "GSW", home: "Los Angeles", homeCode: "LAL", awayRecord: "43-33", homeRecord: "46-30", colorA: "#eabf3d", colorH: "#a477df", spread: ["+3.5", "-3.5"], moneyline: ["+145", "-170"], total: ["O 228.5", "U 228.5"] },
+  { id: "mlb1", league: "MLB", time: "TODAY · 7:10 PM", away: "New York", awayCode: "NYY", home: "Boston", homeCode: "BOS", awayRecord: "12-8", homeRecord: "11-9", colorA: "#8399b9", colorH: "#e66b73", spread: ["-1.5", "+1.5"], moneyline: ["-135", "+115"], total: ["O 8.5", "U 8.5"] },
+  { id: "nhl1", league: "NHL", time: "TODAY · 8:00 PM", away: "Colorado", awayCode: "COL", home: "Dallas", homeCode: "DAL", awayRecord: "47-25", homeRecord: "49-23", colorA: "#bd697a", colorH: "#d8a262", spread: ["+1.5", "-1.5"], moneyline: ["+120", "-140"], total: ["O 5.5", "U 5.5"] },
+  { id: "nfl1", league: "NFL", time: "SUN · 4:25 PM", away: "Kansas City", awayCode: "KC", home: "Buffalo", homeCode: "BUF", awayRecord: "11-4", homeRecord: "12-3", colorA: "#e5665f", colorH: "#658ddc", spread: ["+2.5", "-2.5"], moneyline: ["+115", "-135"], total: ["O 47.5", "U 47.5"] },
+];
+const sports = [{ name: "For you", icon: "✦" }, { name: "NBA", icon: "◉" }, { name: "MLB", icon: "◌" }, { name: "NHL", icon: "✳" }, { name: "NFL", icon: "◈" }];
+
+function Logo({ small = false }: { small?: boolean }) { return <span className={`brand ${small ? "brand-small" : ""}`}><span className="brand-mark">✳</span><span>ALL THE <span className="brand-accent">ODDS</span></span></span>; }
+
+function OddsButton({ pick, selected, onSelect }: { pick: Pick; selected: boolean; onSelect: (pick: Pick) => void }) {
+  return <button className={`odds-button ${selected ? "selected" : ""}`} onClick={() => onSelect(pick)} aria-pressed={selected}><span>{pick.detail}</span><strong>{pick.odds}</strong></button>;
+}
+
+function GameCard({ game, picks, onSelect }: { game: Game; picks: Pick[]; onSelect: (pick: Pick) => void }) {
+  const makePick = (market: string, side: number, detail: string, odds: string): Pick => ({ id: `${game.id}-${market}-${side}`, game: `${game.awayCode} @ ${game.homeCode}`, name: market === "Total" ? detail : side === 0 ? game.away : game.home, detail: market === "Moneyline" ? "Moneyline" : `${market} ${detail}`, odds });
+  const markets = [
+    [makePick("Spread", 0, game.spread[0], "-110"), makePick("Spread", 1, game.spread[1], "-110")],
+    [makePick("Moneyline", 0, game.awayCode, game.moneyline[0]), makePick("Moneyline", 1, game.homeCode, game.moneyline[1])],
+    [makePick("Total", 0, game.total[0], "-110"), makePick("Total", 1, game.total[1], "-110")],
+  ];
+  return <article className="game-card"><div className="game-meta"><span><span className="league-dot" /> {game.league}</span><span>{game.time}</span><button aria-label="More game information">•••</button></div><div className="game-content"><div className="teams"><div className="team"><span className="team-badge" style={{ "--team-color": game.colorA } as React.CSSProperties}>{game.awayCode.slice(0, 2)}</span><span><strong>{game.away}</strong><small>{game.awayRecord}</small></span></div><div className="team"><span className="team-badge" style={{ "--team-color": game.colorH } as React.CSSProperties}>{game.homeCode.slice(0, 2)}</span><span><strong>{game.home}</strong><small>{game.homeRecord}</small></span></div></div><div className="markets">{markets.map((market, i) => <div className="market" key={i}><span className="market-label">{["SPREAD", "MONEYLINE", "TOTAL"][i]}</span>{market.map((pick) => <OddsButton key={pick.id} pick={pick} selected={picks.some((p) => p.id === pick.id)} onSelect={onSelect} />)}</div>)}</div></div><div className="game-footer"><span>Game lines</span><span>+ 24 markets <b>›</b></span></div></article>;
+}
 
 export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+  const [sport, setSport] = useState("For you");
+  const [picks, setPicks] = useState<Pick[]>([]);
+  const [stake, setStake] = useState("");
+  const [insightOpen, setInsightOpen] = useState(false);
+  const visibleGames = useMemo(() => sport === "For you" ? games.slice(0, 2) : games.filter((game) => game.league === sport), [sport]);
+  function togglePick(pick: Pick) { setPicks((current) => current.some((item) => item.id === pick.id) ? current.filter((item) => item.id !== pick.id) : [...current.filter((item) => item.game !== pick.game), pick]); }
+  const firstOdds = picks[0] ? Number(picks[0].odds) : 0;
+  const payout = Number(stake) > 0 && picks.length === 1 ? Number(stake) * (firstOdds > 0 ? 1 + firstOdds / 100 : 1 + 100 / Math.abs(firstOdds)) : 0;
+  return <div className="app-shell">
+    <aside className="sidebar"><Logo /><div className="side-label">DISCOVER</div><nav className="side-nav" aria-label="Main navigation"><button className="nav-active" onClick={() => setSport("For you")}><span>▦</span> Lobby <i>›</i></button><button onClick={() => setSport("NBA")}><span>◉</span> Sports <i>›</i></button><button onClick={() => { setInsightOpen(true); document.getElementById("insights")?.scrollIntoView({ behavior: "smooth" }); }}><span>✧</span> AI Insights <i>›</i></button></nav><div className="side-label sports-label">SPORTS</div><nav className="side-nav sports-nav" aria-label="Sports">{sports.slice(1).map((item) => <button key={item.name} className={sport === item.name ? "sport-active" : ""} onClick={() => setSport(item.name)}><span>{item.icon}</span>{item.name}<i>›</i></button>)}</nav><div className="side-bottom"><div className="side-promo-icon">✦</div><strong>A smarter way to play.</strong><p>Get a little more perspective with AI-powered insights.</p><button onClick={() => { setInsightOpen(true); document.getElementById("insights")?.scrollIntoView({ behavior: "smooth" }); }}>Explore insights <span>↗</span></button></div><div className="side-foot">DEMO EXPERIENCE <span>•</span> 21+</div></aside>
+    <div className="workspace"><header className="topbar"><div className="mobile-logo"><Logo small /></div><div className="top-title"><span className="status-dot" /> YOUR SPORTSBOOK, REIMAGINED</div><div className="top-actions"><span className="demo-tag">DEMO MODE</span><span className="avatar">EP</span></div></header><main className="main-layout"><div className="content"><div className="welcome"><div><div className="eyebrow"><span /> YOUR FRONT ROW SEAT</div><h1>Let’s make it <em>interesting.</em></h1><p>All the action. A little more insight.</p></div><div className="date-pill">✦ &nbsp; THE GAME STARTS HERE</div></div>
+      <section className="hero"><div className="hero-copy"><div className="hero-kicker"><span>✦</span> THE ALL THE ODDS EXPERIENCE</div><h2>BETTER PLAYS<br /><em>START HERE.</em></h2><p>Your favorite matchups, fresh perspectives, and all the action in one place.</p><button onClick={() => document.getElementById("matchups")?.scrollIntoView({ behavior: "smooth" })}>Explore matchups <span>↗</span></button></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="hero-ball"><span>✳</span></div><div className="hero-art-label">THE<br />INSIDE<br /><strong>EDGE.</strong></div><div className="hero-number">01 / 03</div></div></section>
+      <section className="sports-section"><div className="section-heading"><div><div className="eyebrow muted">FIND YOUR GAME</div><h2>Browse sports</h2></div><span className="section-note">PICK A LEAGUE TO GET STARTED <span>↗</span></span></div><div className="sport-tabs" role="group" aria-label="Filter by sport">{sports.map((item) => <button key={item.name} className={sport === item.name ? "active" : ""} onClick={() => setSport(item.name)} aria-pressed={sport === item.name}><span>{item.icon}</span>{item.name}</button>)}</div></section>
+      <section className="matchups" id="matchups"><div className="section-heading"><div><div className="eyebrow muted">THE MAIN EVENT</div><h2>{sport === "For you" ? "Featured matchups" : `${sport} matchups`} <span className="heading-spark">✳</span></h2></div><span className="section-note">SAMPLE LINES <span>↗</span></span></div><div className="games">{visibleGames.map((game) => <GameCard key={game.id} game={game} picks={picks} onSelect={togglePick} />)}</div><p className="sample-note">Odds and matchups shown are examples for this demo and are not live.</p></section>
+      <section className="insights" id="insights"><div className="insight-icon">✧</div><div className="insight-copy"><div className="eyebrow">MEET YOUR CO-PILOT</div><h3>A little insight goes a long way.</h3><p>Explore the story behind the matchup with your AI assistant.</p>{insightOpen && <div className="insight-expanded"><strong>Example insight</strong><p>Compare recent form, injuries, and matchup history before making a decision. Live analysis will be available when the AI assistant is connected.</p></div>}</div><button onClick={() => setInsightOpen(!insightOpen)}>{insightOpen ? "Close insight" : "Explore insights"} <span>↗</span></button></section><footer>© 2026 ALL THE ODDS <span>BUILT FOR THE LOVE OF THE GAME.</span> <span>DEMO ONLY · PLAY RESPONSIBLY</span></footer></div>
+      <aside className="betslip"><div className="slip-heading"><div><span className="eyebrow muted">YOUR SELECTIONS</span><h2>Bet slip <span>{picks.length}</span></h2></div>{picks.length > 0 && <button onClick={() => setPicks([])}>Clear all</button>}</div><div className="slip-tabs"><span className="current">Singles</span><span>Parlay</span></div>{picks.length === 0 ? <div className="empty-slip"><div className="ticket-icon">◇<span>✦</span></div><h3>Your slip is looking a little empty.</h3><p>Explore the matchups and select some odds to get started.</p><span>YOUR NEXT PLAY AWAITS</span></div> : <div className="slip-picks">{picks.map((pick) => <div className="slip-pick" key={pick.id}><div><strong>{pick.name}</strong><small>{pick.detail} · {pick.game}</small></div><b>{pick.odds}</b><button onClick={() => togglePick(pick)} aria-label={`Remove ${pick.name} selection`}>×</button></div>)}<label className="stake-label" htmlFor="stake">Demo wager <span>USD</span></label><div className="stake-input"><span>$</span><input id="stake" type="number" min="0" placeholder="0.00" value={stake} onChange={(event) => setStake(event.target.value)} /></div>{picks.length === 1 ? <div className="payout"><span>Potential return</span><strong>${payout.toFixed(2)}</strong></div> : <p className="slip-helper">Potential return is shown for one selection at a time.</p>}<div className="demo-notice">Demo only — no bets can be placed.</div></div>}<div className="slip-bottom"><div className="slip-bottom-icon">✧</div><div><strong>Play with perspective.</strong><p>Good decisions start with good information.</p></div></div></aside></main></div></div>;
 }
