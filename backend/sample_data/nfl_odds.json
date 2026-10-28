@@ -1,0 +1,470 @@
+[
+  {
+    "id": "sample-nfl-1",
+    "sport_key": "americanfootball_nfl",
+    "commence_time": "2026-11-01T17:00:00Z",
+    "home_team": "Jacksonville Jaguars",
+    "away_team": "Kansas City Chiefs",
+    "bookmakers": [
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {
+                "name": "Kansas City Chiefs",
+                "price": -145
+              },
+              {
+                "name": "Jacksonville Jaguars",
+                "price": 125
+              }
+            ]
+          },
+          {
+            "key": "spreads",
+            "outcomes": [
+              {
+                "name": "Kansas City Chiefs",
+                "price": -110,
+                "point": -3.0
+              },
+              {
+                "name": "Jacksonville Jaguars",
+                "price": -110,
+                "point": 3.0
+              }
+            ]
+          },
+          {
+            "key": "totals",
+            "outcomes": [
+              {
+                "name": "Over",
+                "price": -110,
+                "point": 45.5
+              },
+              {
+                "name": "Under",
+                "price": -110,
+                "point": 45.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "fanduel",
+        "title": "FanDuel",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {
+                "name": "Kansas City Chiefs",
+                "price": -140
+              },
+              {
+                "name": "Jacksonville Jaguars",
+                "price": 120
+              }
+            ]
+          },
+          {
+            "key": "spreads",
+            "outcomes": [
+              {
+                "name": "Kansas City Chiefs",
+                "price": -110,
+                "point": -3.0
+              },
+              {
+                "name": "Jacksonville Jaguars",
+                "price": -110,
+                "point": 3.0
+              }
+            ]
+          },
+          {
+            "key": "totals",
+            "outcomes": [
+              {
+                "name": "Over",
+                "price": -105,
+                "point": 45.5
+              },
+              {
+                "name": "Under",
+                "price": -115,
+                "point": 45.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "betmgm",
+        "title": "BetMGM",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {
+                "name": "Kansas City Chiefs",
+                "price": -150
+              },
+              {
+                "name": "Jacksonville Jaguars",
+                "price": 130
+              }
+            ]
+          },
+          {
+            "key": "spreads",
+            "outcomes": [
+              {
+                "name": "Kansas City Chiefs",
+                "price": -110,
+                "point": -3.0
+              },
+              {
+                "name": "Jacksonville Jaguars",
+                "price": -110,
+                "point": 3.0
+              }
+            ]
+          },
+          {
+            "key": "totals",
+            "outcomes": [
+              {
+                "name": "Over",
+                "price": -115,
+                "point": 45.5
+              },
+              {
+                "name": "Under",
+                "price": -105,
+                "point": 45.5
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "sample-nfl-2",
+    "sport_key": "americanfootball_nfl",
+    "commence_time": "2026-11-01T17:00:00Z",
+    "home_team": "New England Patriots",
+    "away_team": "Buffalo Bills",
+    "bookmakers": [
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {
+                "name": "Buffalo Bills",
+                "price": -170
+              },
+              {
+                "name": "New England Patriots",
+                "price": 145
+              }
+            ]
+          },
+          {
+            "key": "spreads",
+            "outcomes": [
+              {
+                "name": "Buffalo Bills",
+                "price": -110,
+                "point": -3.5
+              },
+              {
+                "name": "New England Patriots",
+                "price": -110,
+                "point": 3.5
+              }
+            ]
+          },
+          {
+            "key": "totals",
+            "outcomes": [
+              {
+                "name": "Over",
+                "price": -110,
+                "point": 42.5
+              },
+              {
+                "name": "Under",
+                "price": -110,
+                "point": 42.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "fanduel",
+        "title": "FanDuel",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {
+                "name": "Buffalo Bills",
+                "price": -165
+              },
+              {
+                "name": "New England Patriots",
+                "price": 140
+              }
+            ]
+          },
+          {
+            "key": "spreads",
+            "outcomes": [
+              {
+                "name": "Buffalo Bills",
+                "price": -110,
+                "point": -3.5
+              },
+              {
+                "name": "New England Patriots",
+                "price": -110,
+                "point": 3.5
+              }
+            ]
+          },
+          {
+            "key": "totals",
+            "outcomes": [
+              {
+                "name": "Over",
+                "price": -105,
+                "point": 42.5
+              },
+              {
+                "name": "Under",
+                "price": -115,
+                "point": 42.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "betmgm",
+        "title": "BetMGM",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {
+                "name": "Buffalo Bills",
+                "price": -175
+              },
+              {
+                "name": "New England Patriots",
+                "price": 150
+              }
+            ]
+          },
+          {
+            "key": "spreads",
+            "outcomes": [
+              {
+                "name": "Buffalo Bills",
+                "price": -110,
+                "point": -3.5
+              },
+              {
+                "name": "New England Patriots",
+                "price": -110,
+                "point": 3.5
+              }
+            ]
+          },
+          {
+            "key": "totals",
+            "outcomes": [
+              {
+                "name": "Over",
+                "price": -115,
+                "point": 42.5
+              },
+              {
+                "name": "Under",
+                "price": -105,
+                "point": 42.5
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "sample-nfl-3",
+    "sport_key": "americanfootball_nfl",
+    "commence_time": "2026-11-01T17:00:00Z",
+    "home_team": "Philadelphia Eagles",
+    "away_team": "Dallas Cowboys",
+    "bookmakers": [
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {
+                "name": "Dallas Cowboys",
+                "price": 120
+              },
+              {
+                "name": "Philadelphia Eagles",
+                "price": -140
+              }
+            ]
+          },
+          {
+            "key": "spreads",
+            "outcomes": [
+              {
+                "name": "Dallas Cowboys",
+                "price": -110,
+                "point": 2.5
+              },
+              {
+                "name": "Philadelphia Eagles",
+                "price": -110,
+                "point": -2.5
+              }
+            ]
+          },
+          {
+            "key": "totals",
+            "outcomes": [
+              {
+                "name": "Over",
+                "price": -110,
+                "point": 47.5
+              },
+              {
+                "name": "Under",
+                "price": -110,
+                "point": 47.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "fanduel",
+        "title": "FanDuel",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {
+                "name": "Dallas Cowboys",
+                "price": 125
+              },
+              {
+                "name": "Philadelphia Eagles",
+                "price": -145
+              }
+            ]
+          },
+          {
+            "key": "spreads",
+            "outcomes": [
+              {
+                "name": "Dallas Cowboys",
+                "price": -110,
+                "point": 2.5
+              },
+              {
+                "name": "Philadelphia Eagles",
+                "price": -110,
+                "point": -2.5
+              }
+            ]
+          },
+          {
+            "key": "totals",
+            "outcomes": [
+              {
+                "name": "Over",
+                "price": -105,
+                "point": 47.5
+              },
+              {
+                "name": "Under",
+                "price": -115,
+                "point": 47.5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "betmgm",
+        "title": "BetMGM",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              {
+                "name": "Dallas Cowboys",
+                "price": 115
+              },
+              {
+                "name": "Philadelphia Eagles",
+                "price": -135
+              }
+            ]
+          },
+          {
+            "key": "spreads",
+            "outcomes": [
+              {
+                "name": "Dallas Cowboys",
+                "price": -110,
+                "point": 2.5
+              },
+              {
+                "name": "Philadelphia Eagles",
+                "price": -110,
+                "point": -2.5
+              }
+            ]
+          },
+          {
+            "key": "totals",
+            "outcomes": [
+              {
+                "name": "Over",
+                "price": -115,
+                "point": 47.5
+              },
+              {
+                "name": "Under",
+                "price": -105,
+                "point": 47.5
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
