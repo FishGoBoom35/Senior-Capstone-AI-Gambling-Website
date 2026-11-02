@@ -1,18 +1,9 @@
 "use client";
 
 import Sidebar from "@/components/sidebar";
+import { analyzeArbitrage, type ApiGame, type Market, type Outcome } from "@/lib/arbitrage";
 import { useEffect, useMemo, useState } from "react";
 
-type Market = "h2h" | "spreads" | "totals";
-type Outcome = { outcome: string; price: number; point?: number | null };
-type ApiGame = {
-  id: string;
-  home_team: string;
-  away_team: string;
-  commence_time: string;
-  is_sample: boolean;
-  books: Record<string, Partial<Record<Market, Outcome[]>>>;
-};
 type Selection = {
   gameId: string;
   matchup: string;
@@ -98,11 +89,8 @@ export default function OddsPage() {
     `${game.away_team} ${game.home_team}`.toLowerCase().includes(search.toLowerCase()),
   );
   const isSample = games.some((game) => game.is_sample);
-  const pricesTracked = games.reduce(
-    (total, game) => total + Object.values(game.books).reduce(
-      (bookTotal, book) => bookTotal + (book[market]?.length ?? 0), 0,
-    ), 0,
-  );
+  const arbitrageOpportunities = useMemo(() => analyzeArbitrage(games), [games]);
+  const guaranteedArbitrage = arbitrageOpportunities.filter((opportunity) => opportunity.classification === "guaranteed");
   const message = status === "loading"
     ? "Loading the latest stored odds…"
     : status === "error"
@@ -137,13 +125,27 @@ export default function OddsPage() {
           </div>
 
           <div className="mb-8 grid gap-4 md:grid-cols-3">
-            {[["Games Tracked", games.length], ["Sportsbooks", sportsbooks.length], [`${marketLabels[market]} Prices`, pricesTracked]].map(([label, value]) => (
+            {[["Games Tracked", games.length], ["Sportsbooks", sportsbooks.length], ["Guaranteed Arbitrage", guaranteedArbitrage.length]].map(([label, value]) => (
               <div key={label} className="rounded-xl border border-gray-200 bg-white p-6">
                 <p className="text-sm text-gray-500">{label}</p>
                 <h2 className="mt-2 text-3xl font-bold">{value}</h2>
               </div>
             ))}
           </div>
+
+          <section className="mb-8 overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-6">
+              <div><p className="text-xs font-bold tracking-widest text-green-700">SETTLEMENT-AWARE ANALYSIS</p><h2 className="mt-1 text-xl font-bold">Arbitrage Scanner</h2><p className="mt-1 text-sm text-gray-500">Analyzes every stored sportsbook pairing across moneyline, spreads, and totals.</p></div>
+              <span className="rounded-full bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-600">{arbitrageOpportunities.length} candidate{arbitrageOpportunities.length === 1 ? "" : "s"}</span>
+            </div>
+            {status === "loading" ? <p className="p-6 text-sm text-gray-500">Analyzing available markets…</p> : arbitrageOpportunities.length === 0 ? <p className="p-6 text-sm text-gray-500">No arbitrage or settlement-safe middle candidates were found in the currently stored odds.</p> : <div className="divide-y divide-gray-200">{arbitrageOpportunities.slice(0, 30).map((opportunity) => {
+              const badge = opportunity.classification === "guaranteed" ? "bg-green-100 text-green-800" : opportunity.classification === "middle" ? "bg-blue-100 text-blue-800" : opportunity.classification === "push-exposed" ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-700";
+              const label = opportunity.classification === "guaranteed" ? "Guaranteed arbitrage" : opportunity.classification === "middle" ? "Potential middle" : opportunity.classification === "push-exposed" ? "Push-exposed" : opportunity.classification === "theoretical" ? "Theoretical only" : "Not guaranteed";
+              const line = (outcome: Outcome) => `${outcome.outcome}${outcome.point == null ? "" : ` ${outcome.point > 0 && opportunity.market === "spreads" ? "+" : ""}${outcome.point}`}`;
+              return <div key={opportunity.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"><div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge}`}>{label}</span><span className="text-xs font-semibold text-gray-500">{marketLabels[opportunity.market]}</span></div><p className="mt-2 font-semibold">{opportunity.matchup}</p><p className="mt-1 text-sm text-gray-600">{line(opportunity.first)} <strong>{formatOdds(opportunity.first.price)}</strong> at {opportunity.first.sportsbook} <span className="mx-1">·</span> {line(opportunity.second)} <strong>{formatOdds(opportunity.second.price)}</strong> at {opportunity.second.sportsbook}{opportunity.third && <><span className="mx-1">·</span>{line(opportunity.third)} <strong>{formatOdds(opportunity.third.price)}</strong> at {opportunity.third.sportsbook}</>}</p><p className="mt-1 text-xs leading-5 text-gray-500">{opportunity.note}</p></div><div className="grid grid-cols-2 gap-x-5 gap-y-1 text-sm lg:text-right"><span className="text-gray-500">Implied total</span><strong>{(opportunity.combinedProbability * 100).toFixed(2)}%</strong><span className="text-gray-500">Theoretical ROI</span><strong>{opportunity.theoreticalRoi.toFixed(2)}%</strong>{opportunity.classification !== "theoretical" && <><span className="text-gray-500">Worst-case ROI</span><strong className={opportunity.minimumProfit > 0 ? "text-green-700" : "text-gray-900"}>{(opportunity.minimumProfit * 100).toFixed(2)}%</strong></>}</div></div>;
+            })}</div>}
+            {arbitrageOpportunities.length > 30 && <p className="border-t border-gray-200 p-4 text-center text-xs text-gray-500">Showing the top 30 of {arbitrageOpportunities.length} analyzed candidates.</p>}
+          </section>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -167,7 +169,7 @@ export default function OddsPage() {
                         return <td key={book} className="p-4"><div className="space-y-2">{outcomeNames.map((outcomeName) => {
                           const outcome = outcomes.find((item) => item.outcome === outcomeName);
                           if (!outcome) return <div key={outcomeName} className="rounded-md bg-gray-100 px-3 py-2 text-center font-semibold text-gray-400">—</div>;
-                          const isBest = outcome.price === bestPrice(game, market, outcomeName);
+                        const isBest = outcome.price === bestPrice(game, market, outcomeName);
                           const team = selectionLabel(outcome, market);
                           const selected = selections.some((item) => item.gameId === game.id && item.team === team && item.sportsbook === book && item.market === market);
                           return <button type="button" key={outcomeName} onClick={() => toggleSelection({ gameId: game.id, matchup: `${game.away_team} vs. ${game.home_team}`, team, sportsbook: book, price: outcome.price, market, point: outcome.point })} className={`w-full rounded-md border px-3 py-2 text-center font-semibold transition ${selected ? "border-[#10151f] bg-[#10151f] text-white" : isBest ? "border-green-400 bg-green-100 text-green-800 hover:border-green-700" : "border-transparent bg-gray-100 text-gray-900 hover:border-gray-400"}`}><span className="block text-xs">{team}</span><span>{formatOdds(outcome.price)}</span></button>;
