@@ -1,112 +1,266 @@
+
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useState } from "react";
 
-type Pick = { id: string; game: string; name: string; detail: string; odds: string };
-type Game = { id: string; league: string; time: string; away: string; awayCode: string; home: string; homeCode: string; awayRecord: string; homeRecord: string; colorA: string; colorH: string; spread: [string, string]; moneyline: [string, string]; total: [string, string] };
-type ApiOutcome = { outcome: string; price: number; point: number | null };
-type ApiGame = { id: string; sport: string; home_team: string; away_team: string; commence_time: string; updated_at: string; is_sample: boolean; books: Record<string, Record<string, ApiOutcome[]>> };
-
-const sampleGames: Game[] = [
-  { id: "nba1", league: "NBA", time: "TODAY · 7:30 PM", away: "New York", awayCode: "NYK", home: "Boston", homeCode: "BOS", awayRecord: "48-28", homeRecord: "54-22", colorA: "#e77527", colorH: "#df9a65", spread: ["+5.5", "-5.5"], moneyline: ["+185", "-225"], total: ["O 221.5", "U 221.5"] },
-  { id: "nba2", league: "NBA", time: "TODAY · 10:00 PM", away: "Golden State", awayCode: "GSW", home: "Los Angeles", homeCode: "LAL", awayRecord: "43-33", homeRecord: "46-30", colorA: "#eabf3d", colorH: "#a477df", spread: ["+3.5", "-3.5"], moneyline: ["+145", "-170"], total: ["O 228.5", "U 228.5"] },
-  { id: "mlb1", league: "MLB", time: "TODAY · 7:10 PM", away: "New York", awayCode: "NYY", home: "Boston", homeCode: "BOS", awayRecord: "12-8", homeRecord: "11-9", colorA: "#8399b9", colorH: "#e66b73", spread: ["-1.5", "+1.5"], moneyline: ["-135", "+115"], total: ["O 8.5", "U 8.5"] },
-  { id: "nhl1", league: "NHL", time: "TODAY · 8:00 PM", away: "Colorado", awayCode: "COL", home: "Dallas", homeCode: "DAL", awayRecord: "47-25", homeRecord: "49-23", colorA: "#bd697a", colorH: "#d8a262", spread: ["+1.5", "-1.5"], moneyline: ["+120", "-140"], total: ["O 5.5", "U 5.5"] },
-  { id: "nfl1", league: "NFL", time: "SUN · 4:25 PM", away: "Kansas City", awayCode: "KC", home: "Buffalo", homeCode: "BUF", awayRecord: "11-4", homeRecord: "12-3", colorA: "#e5665f", colorH: "#658ddc", spread: ["+2.5", "-2.5"], moneyline: ["+115", "-135"], total: ["O 47.5", "U 47.5"] },
+const navigation = [
+  { name: "Home", href: "/", icon: "▦" },
+  { name: "Odds", href: "/odds", icon: "◈" },
+  { name: "AI Analysis", href: "/analysis", icon: "✧" },
+  { name: "AI Chatbot", href: "/chatbot", icon: "◇" },
+  { name: "History", href: "/history", icon: "◷" },
 ];
-const sports = [{ name: "For you", icon: "✦" }, { name: "NBA", icon: "◉" }, { name: "MLB", icon: "◌" }, { name: "NHL", icon: "✳" }, { name: "NFL", icon: "◈" }];
 
-function abbreviate(team: string) {
-  return team.split(" ").map((part) => part[0]).join("").slice(0, 3).toUpperCase();
-}
-
-function americanOdds(outcomes: ApiOutcome[] | undefined, team: string, fallback: string) {
-  const match = outcomes?.find((outcome) => outcome.outcome === team);
-  return match ? `${match.price > 0 ? "+" : ""}${match.price}` : fallback;
-}
-
-function point(outcomes: ApiOutcome[] | undefined, team: string, fallback: string) {
-  const match = outcomes?.find((outcome) => outcome.outcome === team);
-  return match?.point == null ? fallback : `${match.point > 0 ? "+" : ""}${match.point}`;
-}
-
-function asGame(game: ApiGame): Game {
-  const book = Object.values(game.books)[0] ?? {};
-  const totals = book.totals ?? [];
-  const over = totals.find((outcome) => outcome.outcome === "Over");
-  const under = totals.find((outcome) => outcome.outcome === "Under");
-  const time = new Intl.DateTimeFormat("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" }).format(new Date(game.commence_time)).toUpperCase();
-  return {
-    id: game.id,
-    league: game.sport.toUpperCase(),
-    time,
-    away: game.away_team,
-    awayCode: abbreviate(game.away_team),
-    home: game.home_team,
-    homeCode: abbreviate(game.home_team),
-    awayRecord: "Live odds",
-    homeRecord: "Live odds",
-    colorA: "#e77527",
-    colorH: "#658ddc",
-    spread: [point(book.spreads, game.away_team, "—"), point(book.spreads, game.home_team, "—")],
-    moneyline: [americanOdds(book.h2h, game.away_team, "—"), americanOdds(book.h2h, game.home_team, "—")],
-    total: [over?.point == null ? "O —" : `O ${over.point}`, under?.point == null ? "U —" : `U ${under.point}`],
-  };
-}
-
-function Logo({ small = false }: { small?: boolean }) { return <span className={`brand ${small ? "brand-small" : ""}`}><span className="brand-mark">✳</span><span>ALL THE <span className="brand-accent">ODDS</span></span></span>; }
-
-function OddsButton({ pick, selected, onSelect }: { pick: Pick; selected: boolean; onSelect: (pick: Pick) => void }) {
-  return <button className={`odds-button ${selected ? "selected" : ""}`} onClick={() => onSelect(pick)} aria-pressed={selected}><span>{pick.detail}</span><strong>{pick.odds}</strong></button>;
-}
-
-function GameCard({ game, picks, onSelect }: { game: Game; picks: Pick[]; onSelect: (pick: Pick) => void }) {
-  const makePick = (market: string, side: number, detail: string, odds: string): Pick => ({ id: `${game.id}-${market}-${side}`, game: `${game.awayCode} @ ${game.homeCode}`, name: market === "Total" ? detail : side === 0 ? game.away : game.home, detail: market === "Moneyline" ? "Moneyline" : `${market} ${detail}`, odds });
-  const markets = [
-    [makePick("Spread", 0, game.spread[0], "-110"), makePick("Spread", 1, game.spread[1], "-110")],
-    [makePick("Moneyline", 0, game.awayCode, game.moneyline[0]), makePick("Moneyline", 1, game.homeCode, game.moneyline[1])],
-    [makePick("Total", 0, game.total[0], "-110"), makePick("Total", 1, game.total[1], "-110")],
-  ];
-  return <article className="game-card"><div className="game-meta"><span><span className="league-dot" /> {game.league}</span><span>{game.time}</span><button aria-label="More game information">•••</button></div><div className="game-content"><div className="teams"><div className="team"><span className="team-badge" style={{ "--team-color": game.colorA } as React.CSSProperties}>{game.awayCode.slice(0, 2)}</span><span><strong>{game.away}</strong><small>{game.awayRecord}</small></span></div><div className="team"><span className="team-badge" style={{ "--team-color": game.colorH } as React.CSSProperties}>{game.homeCode.slice(0, 2)}</span><span><strong>{game.home}</strong><small>{game.homeRecord}</small></span></div></div><div className="markets">{markets.map((market, i) => <div className="market" key={i}><span className="market-label">{["SPREAD", "MONEYLINE", "TOTAL"][i]}</span>{market.map((pick) => <OddsButton key={pick.id} pick={pick} selected={picks.some((p) => p.id === pick.id)} onSelect={onSelect} />)}</div>)}</div></div><div className="game-footer"><span>Game lines</span><span>+ 24 markets <b>›</b></span></div></article>;
-}
+const games = [
+  {
+    id: 1,
+    league: "NFL",
+    away: "Kansas City Chiefs",
+    home: "Jacksonville Jaguars",
+    odds: "-145",
+    status: "Sample matchup",
+  },
+  {
+    id: 2,
+    league: "NFL",
+    away: "Buffalo Bills",
+    home: "New England Patriots",
+    odds: "-120",
+    status: "Sample matchup",
+  },
+];
 
 export default function Home() {
-  const [sport, setSport] = useState("For you");
-  const [picks, setPicks] = useState<Pick[]>([]);
-  const [stake, setStake] = useState("");
-  const [insightOpen, setInsightOpen] = useState(false);
-  const [apiGames, setApiGames] = useState<Game[]>([]);
-  const [oddsStatus, setOddsStatus] = useState<"loading" | "live" | "sample" | "unavailable">("loading");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    async function loadOdds() {
-      try {
-        const response = await fetch("/api/odds/nfl");
-        if (!response.ok) throw new Error("Odds API unavailable");
-        const data: ApiGame[] = await response.json();
-        if (!active) return;
-        setApiGames(data.map(asGame));
-        setOddsStatus(data.some((game) => !game.is_sample) ? "live" : "sample");
-      } catch {
-        if (active) setOddsStatus("unavailable");
-      }
-    }
-    loadOdds();
-    return () => { active = false; };
-  }, []);
+  return (
+    <div className="min-h-screen bg-[#f6f7f9] text-[#171717] lg:flex">
+      {/* Mobile navigation */}
+      <div className="flex items-center justify-between bg-[#10151f] p-4 text-white lg:hidden">
+        <span className="font-bold">
+          ALL THE <span className="text-[#a5ed80]">ODDS</span>
+        </span>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label="Toggle navigation"
+        >
+          ☰
+        </button>
+      </div>
 
-  const games = apiGames.length > 0 ? [...apiGames, ...sampleGames.filter((game) => game.league !== "NFL")] : sampleGames;
-  const visibleGames = useMemo(() => sport === "For you" ? games.slice(0, 2) : games.filter((game) => game.league === sport), [games, sport]);
-  function togglePick(pick: Pick) { setPicks((current) => current.some((item) => item.id === pick.id) ? current.filter((item) => item.id !== pick.id) : [...current.filter((item) => item.game !== pick.game), pick]); }
-  const firstOdds = picks[0] ? Number(picks[0].odds) : 0;
-  const payout = Number(stake) > 0 && picks.length === 1 ? Number(stake) * (firstOdds > 0 ? 1 + firstOdds / 100 : 1 + 100 / Math.abs(firstOdds)) : 0;
-  return <div className="app-shell">
-    <aside className="sidebar"><Logo /><div className="side-label">DISCOVER</div><nav className="side-nav" aria-label="Main navigation"><button className="nav-active" onClick={() => setSport("For you")}><span>▦</span> Lobby <i>›</i></button><button onClick={() => setSport("NBA")}><span>◉</span> Sports <i>›</i></button><button onClick={() => { setInsightOpen(true); document.getElementById("insights")?.scrollIntoView({ behavior: "smooth" }); }}><span>✧</span> AI Insights <i>›</i></button></nav><div className="side-label sports-label">SPORTS</div><nav className="side-nav sports-nav" aria-label="Sports">{sports.slice(1).map((item) => <button key={item.name} className={sport === item.name ? "sport-active" : ""} onClick={() => setSport(item.name)}><span>{item.icon}</span>{item.name}<i>›</i></button>)}</nav><div className="side-bottom"><div className="side-promo-icon">✦</div><strong>A smarter way to play.</strong><p>Get a little more perspective with AI-powered insights.</p><button onClick={() => { setInsightOpen(true); document.getElementById("insights")?.scrollIntoView({ behavior: "smooth" }); }}>Explore insights <span>↗</span></button></div><div className="side-foot">DEMO EXPERIENCE <span>•</span> 21+</div></aside>
-    <div className="workspace"><header className="topbar"><div className="mobile-logo"><Logo small /></div><div className="top-title"><span className="status-dot" /> YOUR SPORTSBOOK, REIMAGINED</div><div className="top-actions"><span className="demo-tag">DEMO MODE</span><span className="avatar">EP</span></div></header><main className="main-layout"><div className="content"><div className="welcome"><div><div className="eyebrow"><span /> YOUR FRONT ROW SEAT</div><h1>Let’s make it <em>interesting.</em></h1><p>All the action. A little more insight.</p></div><div className="date-pill">✦ &nbsp; THE GAME STARTS HERE</div></div>
-      <section className="hero"><div className="hero-copy"><div className="hero-kicker"><span>✦</span> THE ALL THE ODDS EXPERIENCE</div><h2>BETTER PLAYS<br /><em>START HERE.</em></h2><p>Your favorite matchups, fresh perspectives, and all the action in one place.</p><button onClick={() => document.getElementById("matchups")?.scrollIntoView({ behavior: "smooth" })}>Explore matchups <span>↗</span></button></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="hero-ball"><span>✳</span></div><div className="hero-art-label">THE<br />INSIDE<br /><strong>EDGE.</strong></div><div className="hero-number">01 / 03</div></div></section>
-      <section className="sports-section"><div className="section-heading"><div><div className="eyebrow muted">FIND YOUR GAME</div><h2>Browse sports</h2></div><span className="section-note">PICK A LEAGUE TO GET STARTED <span>↗</span></span></div><div className="sport-tabs" role="group" aria-label="Filter by sport">{sports.map((item) => <button key={item.name} className={sport === item.name ? "active" : ""} onClick={() => setSport(item.name)} aria-pressed={sport === item.name}><span>{item.icon}</span>{item.name}</button>)}</div></section>
-      <section className="matchups" id="matchups"><div className="section-heading"><div><div className="eyebrow muted">THE MAIN EVENT</div><h2>{sport === "For you" ? "Featured matchups" : `${sport} matchups`} <span className="heading-spark">✳</span></h2></div><span className="section-note">{oddsStatus === "live" ? "LIVE LINES" : oddsStatus === "sample" ? "API SAMPLE DATA" : oddsStatus === "loading" ? "LOADING ODDS" : "DEMO LINES"} <span>↗</span></span></div><div className="games">{visibleGames.map((game) => <GameCard key={game.id} game={game} picks={picks} onSelect={togglePick} />)}</div><p className="sample-note">{oddsStatus === "live" ? "NFL lines are pulled from the connected odds service. Other matchups remain demo data." : oddsStatus === "sample" ? "NFL lines are coming from the backend's sample-data mode. Add an Odds API key for live prices." : oddsStatus === "loading" ? "Connecting to the odds service…" : "The odds service is not running, so the dashboard is showing demo lines."}</p></section>
-      <section className="insights" id="insights"><div className="insight-icon">✧</div><div className="insight-copy"><div className="eyebrow">MEET YOUR CO-PILOT</div><h3>A little insight goes a long way.</h3><p>Explore the story behind the matchup with your AI assistant.</p>{insightOpen && <div className="insight-expanded"><strong>Example insight</strong><p>Compare recent form, injuries, and matchup history before making a decision. Live analysis will be available when the AI assistant is connected.</p></div>}</div><button onClick={() => setInsightOpen(!insightOpen)}>{insightOpen ? "Close insight" : "Explore insights"} <span>↗</span></button></section><footer>© 2026 ALL THE ODDS <span>BUILT FOR THE LOVE OF THE GAME.</span> <span>DEMO ONLY · PLAY RESPONSIBLY</span></footer></div>
-      <aside className="betslip"><div className="slip-heading"><div><span className="eyebrow muted">YOUR SELECTIONS</span><h2>Bet slip <span>{picks.length}</span></h2></div>{picks.length > 0 && <button onClick={() => setPicks([])}>Clear all</button>}</div><div className="slip-tabs"><span className="current">Singles</span><span>Parlay</span></div>{picks.length === 0 ? <div className="empty-slip"><div className="ticket-icon">◇<span>✦</span></div><h3>Your slip is looking a little empty.</h3><p>Explore the matchups and select some odds to get started.</p><span>YOUR NEXT PLAY AWAITS</span></div> : <div className="slip-picks">{picks.map((pick) => <div className="slip-pick" key={pick.id}><div><strong>{pick.name}</strong><small>{pick.detail} · {pick.game}</small></div><b>{pick.odds}</b><button onClick={() => togglePick(pick)} aria-label={`Remove ${pick.name} selection`}>×</button></div>)}<label className="stake-label" htmlFor="stake">Demo wager <span>USD</span></label><div className="stake-input"><span>$</span><input id="stake" type="number" min="0" placeholder="0.00" value={stake} onChange={(event) => setStake(event.target.value)} /></div>{picks.length === 1 ? <div className="payout"><span>Potential return</span><strong>${payout.toFixed(2)}</strong></div> : <p className="slip-helper">Potential return is shown for one selection at a time.</p>}<div className="demo-notice">Demo only — no bets can be placed.</div></div>}<div className="slip-bottom"><div className="slip-bottom-icon">✧</div><div><strong>Play with perspective.</strong><p>Good decisions start with good information.</p></div></div></aside></main></div></div>;
+      {/* Sidebar */}
+      <aside
+        className={`w-full bg-[#10151f] text-white lg:flex lg:min-h-screen lg:w-64 lg:shrink-0 lg:flex-col ${
+          sidebarOpen ? "block" : "hidden"
+        }`}
+      >
+        <div className="border-b border-white/10 p-7">
+          <div className="text-xl font-black tracking-tight">
+            ✳ ALL THE <span className="text-[#a5ed80]">ODDS</span>
+          </div>
+          <p className="mt-2 text-xs text-gray-400">
+            YOUR SPORTS ANALYSIS HUB
+          </p>
+        </div>
+
+        <div className="flex-1 px-4 py-8">
+          <p className="mb-4 px-3 text-xs font-semibold tracking-widest text-gray-500">
+            DISCOVER
+          </p>
+
+          <nav className="space-y-2">
+            {navigation.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition ${
+                  item.href === "/"
+                    ? "bg-[#a5ed80] font-semibold text-[#10151f]"
+                    : "text-gray-300 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <span className="text-lg">{item.icon}</span>
+                {item.name}
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        <div className="border-t border-white/10 p-6">
+          <p className="text-sm font-semibold">
+            ✦ A smarter way to play.
+          </p>
+          <p className="mt-2 text-xs leading-5 text-gray-400">
+            Explore matchups and make informed decisions
+            with data-driven insights.
+          </p>
+          <p className="mt-6 text-xs text-gray-500">
+            DEMO EXPERIENCE · NO REAL MONEY
+          </p>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className="min-w-0 flex-1">
+        <header className="flex items-center justify-between border-b border-gray-200 bg-white px-8 py-5">
+          <div>
+            <p className="text-xs font-semibold tracking-widest text-gray-400">
+              ALL THE ODDS
+            </p>
+            <h2 className="text-lg font-bold">Dashboard</h2>
+          </div>
+
+          <span className="rounded-full bg-green-100 px-4 py-2 text-xs font-bold text-green-800">
+            DEMO MODE
+          </span>
+        </header>
+
+        <main className="mx-auto max-w-6xl space-y-10 p-6 lg:p-10">
+          {/* Welcome */}
+          <section>
+            <p className="mb-3 text-xs font-bold tracking-widest text-green-700">
+              YOUR FRONT ROW SEAT
+            </p>
+            <h1 className="text-4xl font-black tracking-tight lg:text-5xl">
+              Let's make it{" "}
+              <span className="text-green-700">interesting.</span>
+            </h1>
+            <p className="mt-4 text-gray-500">
+              Compare odds, explore predictions, and
+              understand the numbers behind every matchup.
+            </p>
+          </section>
+
+          {/* Hero */}
+          <section className="overflow-hidden rounded-2xl bg-[#10151f] p-8 text-white lg:p-12">
+            <p className="mb-4 text-xs font-bold tracking-widest text-[#a5ed80]">
+              ✦ THE ALL THE ODDS EXPERIENCE
+            </p>
+            <h2 className="text-4xl font-black leading-tight lg:text-5xl">
+              BETTER PLAYS.
+              <br />
+              <span className="text-[#a5ed80]">
+                SMARTER INSIGHTS.
+              </span>
+            </h2>
+            <p className="mt-5 max-w-lg text-sm leading-6 text-gray-300">
+              Sportsbook comparisons, predictive analysis,
+              and historical data — all in one place.
+            </p>
+
+            <Link
+              href="/odds"
+              className="mt-8 inline-block rounded-lg bg-[#a5ed80] px-6 py-3 text-sm font-bold text-[#10151f] hover:bg-[#c0f5a6]"
+            >
+              Explore matchups →
+            </Link>
+          </section>
+
+          {/* Features */}
+          <section>
+            <h2 className="mb-5 text-2xl font-bold">
+              Explore our features
+            </h2>
+
+            <div className="grid gap-5 md:grid-cols-3">
+              {[
+                {
+                  title: "Compare Odds",
+                  description:
+                    "Compare sportsbook lines and identify favorable odds.",
+                  href: "/odds",
+                  icon: "◈",
+                },
+                {
+                  title: "AI Analysis",
+                  description:
+                    "Explore predicted outcomes and matchup statistics.",
+                  href: "/analysis",
+                  icon: "✧",
+                },
+                {
+                  title: "AI Chatbot",
+                  description:
+                    "Ask questions about teams, games, and predictions.",
+                  href: "/chatbot",
+                  icon: "◇",
+                },
+              ].map((feature) => (
+                <Link
+                  href={feature.href}
+                  key={feature.title}
+                  className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition hover:border-green-400 hover:shadow-md"
+                >
+                  <div className="mb-5 text-3xl text-green-700">
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-lg font-bold">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-6 text-gray-500">
+                    {feature.description}
+                  </p>
+                  <p className="mt-5 text-sm font-bold text-green-700">
+                    Explore →
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          {/* Featured matchups */}
+          <section>
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-2xl font-bold">
+                Featured matchups
+              </h2>
+              <Link
+                href="/odds"
+                className="text-sm font-semibold text-green-700"
+              >
+                View all →
+              </Link>
+            </div>
+
+            <div className="space-y-4">
+              {games.map((game) => (
+                <div
+                  key={game.id}
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-6"
+                >
+                  <div>
+                    <p className="mb-2 text-xs font-bold text-green-700">
+                      {game.league} · {game.status}
+                    </p>
+                    <h3 className="font-bold">
+                      {game.away} vs. {game.home}
+                    </h3>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Example odds: {game.odds}
+                    </p>
+                  </div>
+
+                  <Link
+                    href="/analysis"
+                    className="rounded-lg border border-gray-200 px-5 py-3 text-sm font-semibold hover:bg-gray-50"
+                  >
+                    View analysis →
+                  </Link>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-3 text-xs text-gray-400">
+              Sample matchups and odds for demonstration only.
+            </p>
+          </section>
+
+          <footer className="border-t border-gray-200 pt-6 text-xs text-gray-400">
+            © 2026 ALL THE ODDS · DEMO ONLY · NO REAL-MONEY WAGERING
+          </footer>
+        </main>
+      </div>
+    </div>
+  );
 }
