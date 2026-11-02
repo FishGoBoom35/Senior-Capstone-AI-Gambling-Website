@@ -3,14 +3,15 @@
 import Sidebar from "@/components/sidebar";
 import { useEffect, useMemo, useState } from "react";
 
-type Outcome = { outcome: string; price: number };
+type Market = "h2h" | "spreads" | "totals";
+type Outcome = { outcome: string; price: number; point?: number | null };
 type ApiGame = {
   id: string;
   home_team: string;
   away_team: string;
   commence_time: string;
   is_sample: boolean;
-  books: Record<string, { h2h?: Outcome[] }>;
+  books: Record<string, Partial<Record<Market, Outcome[]>>>;
 };
 type Selection = {
   gameId: string;
@@ -18,18 +19,37 @@ type Selection = {
   team: string;
   sportsbook: string;
   price: number;
+  market: Market;
+  point?: number | null;
+};
+
+const marketLabels: Record<Market, string> = {
+  h2h: "Moneyline",
+  spreads: "Spread",
+  totals: "Over / Under",
 };
 
 function formatOdds(price: number | undefined) {
   return price === undefined ? "—" : `${price > 0 ? "+" : ""}${price}`;
 }
 
-function bestPrice(game: ApiGame, team: string) {
+function bestPrice(game: ApiGame, market: Market, outcomeName: string) {
   const prices = Object.values(game.books)
-    .flatMap((book) => book.h2h ?? [])
-    .filter((outcome) => outcome.outcome === team)
+    .flatMap((book) => book[market] ?? [])
+    .filter((outcome) => outcome.outcome === outcomeName)
     .map((outcome) => outcome.price);
   return prices.length ? Math.max(...prices) : undefined;
+}
+
+function selectionLabel(outcome: Outcome, market: Market) {
+  if (market === "spreads") {
+    const point = outcome.point === undefined || outcome.point === null
+      ? ""
+      : ` ${outcome.point > 0 ? "+" : ""}${outcome.point}`;
+    return `${outcome.outcome}${point}`;
+  }
+  if (market === "totals") return `${outcome.outcome} ${outcome.point ?? ""}`.trim();
+  return outcome.outcome;
 }
 
 function decimalOdds(price: number) {
@@ -49,6 +69,7 @@ export default function OddsPage() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [selections, setSelections] = useState<Selection[]>([]);
   const [stake, setStake] = useState("");
+  const [market, setMarket] = useState<Market>("h2h");
 
   useEffect(() => {
     let active = true;
@@ -79,7 +100,7 @@ export default function OddsPage() {
   const isSample = games.some((game) => game.is_sample);
   const pricesTracked = games.reduce(
     (total, game) => total + Object.values(game.books).reduce(
-      (bookTotal, book) => bookTotal + (book.h2h?.length ?? 0), 0,
+      (bookTotal, book) => bookTotal + (book[market]?.length ?? 0), 0,
     ), 0,
   );
   const message = status === "loading"
@@ -97,7 +118,7 @@ export default function OddsPage() {
   function toggleSelection(selection: Selection) {
     setSelections((current) => {
       const existing = current.find((item) => item.gameId === selection.gameId);
-      if (existing?.team === selection.team && existing.sportsbook === selection.sportsbook) {
+      if (existing?.team === selection.team && existing.sportsbook === selection.sportsbook && existing.market === selection.market) {
         return current.filter((item) => item.gameId !== selection.gameId);
       }
       return [...current.filter((item) => item.gameId !== selection.gameId), selection];
@@ -116,7 +137,7 @@ export default function OddsPage() {
           </div>
 
           <div className="mb-8 grid gap-4 md:grid-cols-3">
-            {[["Games Tracked", games.length], ["Sportsbooks", sportsbooks.length], ["Moneyline Prices", pricesTracked]].map(([label, value]) => (
+            {[["Games Tracked", games.length], ["Sportsbooks", sportsbooks.length], [`${marketLabels[market]} Prices`, pricesTracked]].map(([label, value]) => (
               <div key={label} className="rounded-xl border border-gray-200 bg-white p-6">
                 <p className="text-sm text-gray-500">{label}</p>
                 <h2 className="mt-2 text-3xl font-bold">{value}</h2>
@@ -127,8 +148,11 @@ export default function OddsPage() {
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 p-6">
-              <div><h2 className="text-xl font-bold">NFL Matchups</h2><p className="mt-1 text-sm text-gray-500">Moneyline odds by sportsbook</p></div>
+              <div><h2 className="text-xl font-bold">NFL Matchups</h2><p className="mt-1 text-sm text-gray-500">{marketLabels[market]} odds by sportsbook</p></div>
               <input type="text" placeholder="Search teams..." value={search} onChange={(event) => setSearch(event.target.value)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm" />
+            </div>
+            <div className="flex gap-2 border-b border-gray-200 px-6 py-3">
+              {(Object.keys(marketLabels) as Market[]).map((option) => <button key={option} type="button" onClick={() => setMarket(option)} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${market === option ? "bg-[#10151f] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{marketLabels[option]}</button>)}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
@@ -138,13 +162,15 @@ export default function OddsPage() {
                     <tr key={game.id} className="border-t border-gray-200">
                       <td className="p-4"><p className="font-semibold">{game.away_team}</p><p className="text-gray-500">vs. {game.home_team}</p><p className="mt-2 text-xs text-gray-400">{new Date(game.commence_time).toLocaleString()}</p></td>
                       {sportsbooks.map((book) => {
-                        const outcomes = game.books[book]?.h2h ?? [];
-                        return <td key={book} className="p-4"><div className="space-y-2">{[game.away_team, game.home_team].map((team) => {
-                          const price = outcomes.find((outcome) => outcome.outcome === team)?.price;
-                          const isBest = price !== undefined && price === bestPrice(game, team);
-                          if (price === undefined) return <div key={team} className="rounded-md bg-gray-100 px-3 py-2 text-center font-semibold text-gray-400">—</div>;
-                          const selected = selections.some((item) => item.gameId === game.id && item.team === team && item.sportsbook === book);
-                          return <button type="button" key={team} onClick={() => toggleSelection({ gameId: game.id, matchup: `${game.away_team} vs. ${game.home_team}`, team, sportsbook: book, price })} className={`w-full rounded-md border px-3 py-2 text-center font-semibold transition ${selected ? "border-[#10151f] bg-[#10151f] text-white" : isBest ? "border-green-400 bg-green-100 text-green-800 hover:border-green-700" : "border-transparent bg-gray-100 text-gray-900 hover:border-gray-400"}`}>{formatOdds(price)}</button>;
+                        const outcomes = game.books[book]?.[market] ?? [];
+                        const outcomeNames = market === "totals" ? ["Over", "Under"] : [game.away_team, game.home_team];
+                        return <td key={book} className="p-4"><div className="space-y-2">{outcomeNames.map((outcomeName) => {
+                          const outcome = outcomes.find((item) => item.outcome === outcomeName);
+                          if (!outcome) return <div key={outcomeName} className="rounded-md bg-gray-100 px-3 py-2 text-center font-semibold text-gray-400">—</div>;
+                          const isBest = outcome.price === bestPrice(game, market, outcomeName);
+                          const team = selectionLabel(outcome, market);
+                          const selected = selections.some((item) => item.gameId === game.id && item.team === team && item.sportsbook === book && item.market === market);
+                          return <button type="button" key={outcomeName} onClick={() => toggleSelection({ gameId: game.id, matchup: `${game.away_team} vs. ${game.home_team}`, team, sportsbook: book, price: outcome.price, market, point: outcome.point })} className={`w-full rounded-md border px-3 py-2 text-center font-semibold transition ${selected ? "border-[#10151f] bg-[#10151f] text-white" : isBest ? "border-green-400 bg-green-100 text-green-800 hover:border-green-700" : "border-transparent bg-gray-100 text-gray-900 hover:border-gray-400"}`}><span className="block text-xs">{team}</span><span>{formatOdds(outcome.price)}</span></button>;
                         })}</div></td>;
                       })}
                     </tr>
@@ -157,8 +183,8 @@ export default function OddsPage() {
           <aside className="h-fit rounded-xl border border-gray-200 bg-white p-5 xl:sticky xl:top-6">
             <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold tracking-widest text-green-700">DEMO ONLY</p><h2 className="mt-1 text-xl font-bold">Bet Slip</h2></div>{selections.length > 0 && <button type="button" onClick={() => setSelections([])} className="text-sm font-medium text-gray-500 hover:text-gray-900">Clear</button>}</div>
             <p className="mt-2 text-sm text-gray-500">{selections.length > 1 ? "Parlay" : "Straight bet"} · {selections.length} selection{selections.length === 1 ? "" : "s"}</p>
-            {selections.length === 0 ? <p className="py-10 text-center text-sm leading-6 text-gray-500">Select a moneyline from a matchup to build a hypothetical bet.</p> : <>
-              <div className="mt-5 space-y-3">{selections.map((selection) => <div key={selection.gameId} className="rounded-lg bg-gray-50 p-3"><div className="flex justify-between gap-3"><div><p className="font-semibold">{selection.team}</p><p className="mt-1 text-xs text-gray-500">{selection.matchup}</p><p className="mt-1 text-xs text-gray-400">{selection.sportsbook} moneyline</p></div><div className="flex items-start gap-2"><span className="font-bold">{formatOdds(selection.price)}</span><button type="button" onClick={() => setSelections((current) => current.filter((item) => item.gameId !== selection.gameId))} aria-label={`Remove ${selection.team}`} className="text-gray-400 hover:text-gray-900">×</button></div></div></div>)}</div>
+            {selections.length === 0 ? <p className="py-10 text-center text-sm leading-6 text-gray-500">Select a moneyline, spread, or total from a matchup to build a hypothetical bet.</p> : <>
+              <div className="mt-5 space-y-3">{selections.map((selection) => <div key={selection.gameId} className="rounded-lg bg-gray-50 p-3"><div className="flex justify-between gap-3"><div><p className="font-semibold">{selection.team}</p><p className="mt-1 text-xs text-gray-500">{selection.matchup}</p><p className="mt-1 text-xs text-gray-400">{selection.sportsbook} {marketLabels[selection.market].toLowerCase()}</p></div><div className="flex items-start gap-2"><span className="font-bold">{formatOdds(selection.price)}</span><button type="button" onClick={() => setSelections((current) => current.filter((item) => item.gameId !== selection.gameId))} aria-label={`Remove ${selection.team}`} className="text-gray-400 hover:text-gray-900">×</button></div></div></div>)}</div>
               <label className="mt-5 block text-sm font-medium" htmlFor="stake">Hypothetical stake</label>
               <div className="mt-2 flex items-center rounded-lg border border-gray-300 px-3"><span className="text-gray-500">$</span><input id="stake" type="number" min="0" step="0.01" inputMode="decimal" value={stake} onChange={(event) => setStake(event.target.value)} placeholder="0.00" className="w-full border-0 px-2 py-3 outline-none" /></div>
               <div className="mt-5 space-y-2 border-t border-gray-200 pt-4 text-sm">{selections.length > 1 && <div className="flex justify-between font-semibold text-[#10151f]"><span>Total parlay odds</span><span>{americanOdds(combinedDecimal)}</span></div>}<div className="flex justify-between text-gray-500"><span>Potential profit</span><span>${potentialProfit.toFixed(2)}</span></div><div className="flex justify-between text-base font-bold"><span>Potential return</span><span>${potentialReturn.toFixed(2)}</span></div></div>
@@ -166,7 +192,7 @@ export default function OddsPage() {
             </>}
           </aside>
           </div>
-          <div className="mt-5 flex flex-wrap items-center gap-2"><span className="inline-block h-4 w-4 rounded border border-green-400 bg-green-100" /><p className="text-sm text-gray-500">Green indicates the best available moneyline odds for each team.</p></div>
+          <div className="mt-5 flex flex-wrap items-center gap-2"><span className="inline-block h-4 w-4 rounded border border-green-400 bg-green-100" /><p className="text-sm text-gray-500">Green indicates the best available displayed price for each outcome.</p></div>
         </div>
       </main>
     </div>
