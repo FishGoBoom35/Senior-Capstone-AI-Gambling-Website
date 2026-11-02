@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const navigation = [
   { name: "Home", href: "/", icon: "▦" },
@@ -12,27 +12,50 @@ const navigation = [
   { name: "History", href: "/history", icon: "◷" },
 ];
 
-const games = [
-  {
-    id: 1,
-    league: "NFL",
-    away: "Kansas City Chiefs",
-    home: "Jacksonville Jaguars",
-    odds: "-145",
-    status: "Sample matchup",
-  },
-  {
-    id: 2,
-    league: "NFL",
-    away: "Buffalo Bills",
-    home: "New England Patriots",
-    odds: "-120",
-    status: "Sample matchup",
-  },
-];
+type FeaturedGame = {
+  id: string;
+  home_team: string;
+  away_team: string;
+  commence_time: string;
+  is_sample: boolean;
+  books: Record<string, { h2h?: { outcome: string; price: number }[] }>;
+};
+
+function formatOdds(price: number | undefined) {
+  return price === undefined ? "—" : `${price > 0 ? "+" : ""}${price}`;
+}
+
+function bestMoneyline(game: FeaturedGame, team: string) {
+  const prices = Object.values(game.books)
+    .flatMap((book) => book.h2h ?? [])
+    .filter((outcome) => outcome.outcome === team)
+    .map((outcome) => outcome.price);
+  return prices.length ? Math.max(...prices) : undefined;
+}
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [games, setGames] = useState<FeaturedGame[]>([]);
+  const [oddsStatus, setOddsStatus] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    let active = true;
+    async function loadFeaturedGames() {
+      try {
+        const response = await fetch("/api/odds/nfl");
+        if (!response.ok) throw new Error("Odds service unavailable");
+        const data: FeaturedGame[] = await response.json();
+        if (active) {
+          setGames(data.slice(0, 3));
+          setOddsStatus("ready");
+        }
+      } catch {
+        if (active) setOddsStatus("error");
+      }
+    }
+    loadFeaturedGames();
+    return () => { active = false; };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#f6f7f9] text-[#171717] lg:flex">
@@ -231,18 +254,18 @@ export default function Home() {
                 >
                   <div>
                     <p className="mb-2 text-xs font-bold text-green-700">
-                      {game.league} · {game.status}
+                      NFL · {game.is_sample ? "Sample odds" : "Live odds"}
                     </p>
                     <h3 className="font-bold">
-                      {game.away} vs. {game.home}
+                      {game.away_team} vs. {game.home_team}
                     </h3>
                     <p className="mt-1 text-xs text-gray-400">
-                      Example odds: {game.odds}
+                      Best moneylines: {game.away_team} {formatOdds(bestMoneyline(game, game.away_team))} · {game.home_team} {formatOdds(bestMoneyline(game, game.home_team))}
                     </p>
                   </div>
 
                   <Link
-                    href="/analysis"
+                    href="/odds"
                     className="rounded-lg border border-gray-200 px-5 py-3 text-sm font-semibold hover:bg-gray-50"
                   >
                     View analysis →
@@ -252,7 +275,7 @@ export default function Home() {
             </div>
 
             <p className="mt-3 text-xs text-gray-400">
-              Sample matchups and odds for demonstration only.
+              {oddsStatus === "loading" ? "Loading featured NFL matchups…" : oddsStatus === "error" ? "Featured matchups are unavailable. Start the local stack with npm run dev." : "Featured matchups are pulled from the connected odds service."}
             </p>
           </section>
 
