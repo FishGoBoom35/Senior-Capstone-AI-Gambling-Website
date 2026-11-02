@@ -16,7 +16,11 @@ cleanup() {
 
 (
   cd "$backend_dir"
-  .venv/bin/python -m app.ingest
+  if [ "${REFRESH_ODDS:-0}" = "1" ]; then
+    .venv/bin/python -m app.ingest
+  else
+    echo "Using cached odds. Run REFRESH_ODDS=1 npm run dev to fetch fresh odds."
+  fi
   exec .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 ) &
 backend_pid=$!
