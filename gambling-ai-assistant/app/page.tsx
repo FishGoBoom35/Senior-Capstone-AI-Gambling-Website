@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Pick = { id: string; game: string; name: string; detail: string; odds: string };
 type Game = { id: string; league: string; time: string; away: string; awayCode: string; home: string; homeCode: string; awayRecord: string; homeRecord: string; colorA: string; colorH: string; spread: [string, string]; moneyline: [string, string]; total: [string, string] };
+type ApiOutcome = { outcome: string; price: number; point: number | null };
+type ApiGame = { id: string; sport: string; home_team: string; away_team: string; commence_time: string; updated_at: string; is_sample: boolean; books: Record<string, Record<string, ApiOutcome[]>> };
 
-const games: Game[] = [
+const sampleGames: Game[] = [
   { id: "nba1", league: "NBA", time: "TODAY · 7:30 PM", away: "New York", awayCode: "NYK", home: "Boston", homeCode: "BOS", awayRecord: "48-28", homeRecord: "54-22", colorA: "#e77527", colorH: "#df9a65", spread: ["+5.5", "-5.5"], moneyline: ["+185", "-225"], total: ["O 221.5", "U 221.5"] },
   { id: "nba2", league: "NBA", time: "TODAY · 10:00 PM", away: "Golden State", awayCode: "GSW", home: "Los Angeles", homeCode: "LAL", awayRecord: "43-33", homeRecord: "46-30", colorA: "#eabf3d", colorH: "#a477df", spread: ["+3.5", "-3.5"], moneyline: ["+145", "-170"], total: ["O 228.5", "U 228.5"] },
   { id: "mlb1", league: "MLB", time: "TODAY · 7:10 PM", away: "New York", awayCode: "NYY", home: "Boston", homeCode: "BOS", awayRecord: "12-8", homeRecord: "11-9", colorA: "#8399b9", colorH: "#e66b73", spread: ["-1.5", "+1.5"], moneyline: ["-135", "+115"], total: ["O 8.5", "U 8.5"] },
@@ -13,6 +15,44 @@ const games: Game[] = [
   { id: "nfl1", league: "NFL", time: "SUN · 4:25 PM", away: "Kansas City", awayCode: "KC", home: "Buffalo", homeCode: "BUF", awayRecord: "11-4", homeRecord: "12-3", colorA: "#e5665f", colorH: "#658ddc", spread: ["+2.5", "-2.5"], moneyline: ["+115", "-135"], total: ["O 47.5", "U 47.5"] },
 ];
 const sports = [{ name: "For you", icon: "✦" }, { name: "NBA", icon: "◉" }, { name: "MLB", icon: "◌" }, { name: "NHL", icon: "✳" }, { name: "NFL", icon: "◈" }];
+
+function abbreviate(team: string) {
+  return team.split(" ").map((part) => part[0]).join("").slice(0, 3).toUpperCase();
+}
+
+function americanOdds(outcomes: ApiOutcome[] | undefined, team: string, fallback: string) {
+  const match = outcomes?.find((outcome) => outcome.outcome === team);
+  return match ? `${match.price > 0 ? "+" : ""}${match.price}` : fallback;
+}
+
+function point(outcomes: ApiOutcome[] | undefined, team: string, fallback: string) {
+  const match = outcomes?.find((outcome) => outcome.outcome === team);
+  return match?.point == null ? fallback : `${match.point > 0 ? "+" : ""}${match.point}`;
+}
+
+function asGame(game: ApiGame): Game {
+  const book = Object.values(game.books)[0] ?? {};
+  const totals = book.totals ?? [];
+  const over = totals.find((outcome) => outcome.outcome === "Over");
+  const under = totals.find((outcome) => outcome.outcome === "Under");
+  const time = new Intl.DateTimeFormat("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" }).format(new Date(game.commence_time)).toUpperCase();
+  return {
+    id: game.id,
+    league: game.sport.toUpperCase(),
+    time,
+    away: game.away_team,
+    awayCode: abbreviate(game.away_team),
+    home: game.home_team,
+    homeCode: abbreviate(game.home_team),
+    awayRecord: "Live odds",
+    homeRecord: "Live odds",
+    colorA: "#e77527",
+    colorH: "#658ddc",
+    spread: [point(book.spreads, game.away_team, "—"), point(book.spreads, game.home_team, "—")],
+    moneyline: [americanOdds(book.h2h, game.away_team, "—"), americanOdds(book.h2h, game.home_team, "—")],
+    total: [over?.point == null ? "O —" : `O ${over.point}`, under?.point == null ? "U —" : `U ${under.point}`],
+  };
+}
 
 function Logo({ small = false }: { small?: boolean }) { return <span className={`brand ${small ? "brand-small" : ""}`}><span className="brand-mark">✳</span><span>ALL THE <span className="brand-accent">ODDS</span></span></span>; }
 
@@ -35,7 +75,29 @@ export default function Home() {
   const [picks, setPicks] = useState<Pick[]>([]);
   const [stake, setStake] = useState("");
   const [insightOpen, setInsightOpen] = useState(false);
-  const visibleGames = useMemo(() => sport === "For you" ? games.slice(0, 2) : games.filter((game) => game.league === sport), [sport]);
+  const [apiGames, setApiGames] = useState<Game[]>([]);
+  const [oddsStatus, setOddsStatus] = useState<"loading" | "live" | "sample" | "unavailable">("loading");
+
+  useEffect(() => {
+    let active = true;
+    async function loadOdds() {
+      try {
+        const response = await fetch("/api/odds/nfl");
+        if (!response.ok) throw new Error("Odds API unavailable");
+        const data: ApiGame[] = await response.json();
+        if (!active) return;
+        setApiGames(data.map(asGame));
+        setOddsStatus(data.some((game) => !game.is_sample) ? "live" : "sample");
+      } catch {
+        if (active) setOddsStatus("unavailable");
+      }
+    }
+    loadOdds();
+    return () => { active = false; };
+  }, []);
+
+  const games = apiGames.length > 0 ? [...apiGames, ...sampleGames.filter((game) => game.league !== "NFL")] : sampleGames;
+  const visibleGames = useMemo(() => sport === "For you" ? games.slice(0, 2) : games.filter((game) => game.league === sport), [games, sport]);
   function togglePick(pick: Pick) { setPicks((current) => current.some((item) => item.id === pick.id) ? current.filter((item) => item.id !== pick.id) : [...current.filter((item) => item.game !== pick.game), pick]); }
   const firstOdds = picks[0] ? Number(picks[0].odds) : 0;
   const payout = Number(stake) > 0 && picks.length === 1 ? Number(stake) * (firstOdds > 0 ? 1 + firstOdds / 100 : 1 + 100 / Math.abs(firstOdds)) : 0;
@@ -44,7 +106,7 @@ export default function Home() {
     <div className="workspace"><header className="topbar"><div className="mobile-logo"><Logo small /></div><div className="top-title"><span className="status-dot" /> YOUR SPORTSBOOK, REIMAGINED</div><div className="top-actions"><span className="demo-tag">DEMO MODE</span><span className="avatar">EP</span></div></header><main className="main-layout"><div className="content"><div className="welcome"><div><div className="eyebrow"><span /> YOUR FRONT ROW SEAT</div><h1>Let’s make it <em>interesting.</em></h1><p>All the action. A little more insight.</p></div><div className="date-pill">✦ &nbsp; THE GAME STARTS HERE</div></div>
       <section className="hero"><div className="hero-copy"><div className="hero-kicker"><span>✦</span> THE ALL THE ODDS EXPERIENCE</div><h2>BETTER PLAYS<br /><em>START HERE.</em></h2><p>Your favorite matchups, fresh perspectives, and all the action in one place.</p><button onClick={() => document.getElementById("matchups")?.scrollIntoView({ behavior: "smooth" })}>Explore matchups <span>↗</span></button></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="hero-ball"><span>✳</span></div><div className="hero-art-label">THE<br />INSIDE<br /><strong>EDGE.</strong></div><div className="hero-number">01 / 03</div></div></section>
       <section className="sports-section"><div className="section-heading"><div><div className="eyebrow muted">FIND YOUR GAME</div><h2>Browse sports</h2></div><span className="section-note">PICK A LEAGUE TO GET STARTED <span>↗</span></span></div><div className="sport-tabs" role="group" aria-label="Filter by sport">{sports.map((item) => <button key={item.name} className={sport === item.name ? "active" : ""} onClick={() => setSport(item.name)} aria-pressed={sport === item.name}><span>{item.icon}</span>{item.name}</button>)}</div></section>
-      <section className="matchups" id="matchups"><div className="section-heading"><div><div className="eyebrow muted">THE MAIN EVENT</div><h2>{sport === "For you" ? "Featured matchups" : `${sport} matchups`} <span className="heading-spark">✳</span></h2></div><span className="section-note">SAMPLE LINES <span>↗</span></span></div><div className="games">{visibleGames.map((game) => <GameCard key={game.id} game={game} picks={picks} onSelect={togglePick} />)}</div><p className="sample-note">Odds and matchups shown are examples for this demo and are not live.</p></section>
+      <section className="matchups" id="matchups"><div className="section-heading"><div><div className="eyebrow muted">THE MAIN EVENT</div><h2>{sport === "For you" ? "Featured matchups" : `${sport} matchups`} <span className="heading-spark">✳</span></h2></div><span className="section-note">{oddsStatus === "live" ? "LIVE LINES" : oddsStatus === "sample" ? "API SAMPLE DATA" : oddsStatus === "loading" ? "LOADING ODDS" : "DEMO LINES"} <span>↗</span></span></div><div className="games">{visibleGames.map((game) => <GameCard key={game.id} game={game} picks={picks} onSelect={togglePick} />)}</div><p className="sample-note">{oddsStatus === "live" ? "NFL lines are pulled from the connected odds service. Other matchups remain demo data." : oddsStatus === "sample" ? "NFL lines are coming from the backend's sample-data mode. Add an Odds API key for live prices." : oddsStatus === "loading" ? "Connecting to the odds service…" : "The odds service is not running, so the dashboard is showing demo lines."}</p></section>
       <section className="insights" id="insights"><div className="insight-icon">✧</div><div className="insight-copy"><div className="eyebrow">MEET YOUR CO-PILOT</div><h3>A little insight goes a long way.</h3><p>Explore the story behind the matchup with your AI assistant.</p>{insightOpen && <div className="insight-expanded"><strong>Example insight</strong><p>Compare recent form, injuries, and matchup history before making a decision. Live analysis will be available when the AI assistant is connected.</p></div>}</div><button onClick={() => setInsightOpen(!insightOpen)}>{insightOpen ? "Close insight" : "Explore insights"} <span>↗</span></button></section><footer>© 2026 ALL THE ODDS <span>BUILT FOR THE LOVE OF THE GAME.</span> <span>DEMO ONLY · PLAY RESPONSIBLY</span></footer></div>
       <aside className="betslip"><div className="slip-heading"><div><span className="eyebrow muted">YOUR SELECTIONS</span><h2>Bet slip <span>{picks.length}</span></h2></div>{picks.length > 0 && <button onClick={() => setPicks([])}>Clear all</button>}</div><div className="slip-tabs"><span className="current">Singles</span><span>Parlay</span></div>{picks.length === 0 ? <div className="empty-slip"><div className="ticket-icon">◇<span>✦</span></div><h3>Your slip is looking a little empty.</h3><p>Explore the matchups and select some odds to get started.</p><span>YOUR NEXT PLAY AWAITS</span></div> : <div className="slip-picks">{picks.map((pick) => <div className="slip-pick" key={pick.id}><div><strong>{pick.name}</strong><small>{pick.detail} · {pick.game}</small></div><b>{pick.odds}</b><button onClick={() => togglePick(pick)} aria-label={`Remove ${pick.name} selection`}>×</button></div>)}<label className="stake-label" htmlFor="stake">Demo wager <span>USD</span></label><div className="stake-input"><span>$</span><input id="stake" type="number" min="0" placeholder="0.00" value={stake} onChange={(event) => setStake(event.target.value)} /></div>{picks.length === 1 ? <div className="payout"><span>Potential return</span><strong>${payout.toFixed(2)}</strong></div> : <p className="slip-helper">Potential return is shown for one selection at a time.</p>}<div className="demo-notice">Demo only — no bets can be placed.</div></div>}<div className="slip-bottom"><div className="slip-bottom-icon">✧</div><div><strong>Play with perspective.</strong><p>Good decisions start with good information.</p></div></div></aside></main></div></div>;
 }
