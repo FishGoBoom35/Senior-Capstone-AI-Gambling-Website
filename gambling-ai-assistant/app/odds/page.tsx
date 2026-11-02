@@ -75,9 +75,14 @@ export default function OddsPage() {
   const [stake, setStake] = useState("");
   const [arbStake, setArbStake] = useState("100");
 
-  useEffect(() => { let active = true; fetch("/api/odds/nfl").then((response) => response.ok ? response.json() : Promise.reject()).then((data: ApiGame[]) => { if (active) { setGames(data); setStatus("ready"); } }).catch(() => active && setStatus("error")); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; fetch("/api/odds/nfl").then((response) => response.ok ? response.json() : Promise.reject()).then((data: ApiGame[]) => { if (active) { const allBooks = new Set(data.flatMap((game) => Object.keys(game.books))); setGames(data.map((game) => ({ ...game, books: Object.fromEntries([...allBooks].map((book) => [book, game.books[book] ?? {}])) }))); setStatus("ready"); } }).catch(() => active && setStatus("error")); return () => { active = false; }; }, []);
 
-  const books = useMemo(() => [...new Set(games.flatMap((game) => Object.keys(game.books)))].sort(), [games]);
+  const books = useMemo(
+    () => games.length
+      ? Object.keys(games[0].books).filter((book) => games.every((game) => game.books[book])).sort()
+      : [],
+    [games],
+  );
   const visibleGames = games.filter((game) => `${game.away_team} ${game.home_team}`.toLowerCase().includes(search.toLowerCase()));
   const opportunities = useMemo(() => games.flatMap(opportunitiesForGame).sort((a, b) => b.roi - a.roi), [games]);
   const stakeAmount = Number(stake) || 0;
