@@ -1,0 +1,51 @@
+**AI Chatbot Setup (Sprint 3)**
+
+- Pull the latest changes from my GitHub branch.
+- Open the terminal in the `gambling-ai-assistant` folder.
+- Install the required packages using these commands (in VS code terminal):
+
+  ```bash
+  npm install
+  npm install openai react-markdown
+  ```
+
+- Create a free OpenRouter API key here: https://openrouter.ai/settings/keys
+- Create a file called `.env.local` inside the `gambling-ai-assistant` folder.
+- Inside `.env.local`, add your API key:
+
+  ```env
+  OPENROUTER_API_KEY=your_key_here
+  ```
+
+- **Updated folder structure:**
+
+  ```text
+  gambling-ai-assistant/
+  ├── app/
+  │   ├── analysis/
+  │   ├── api/
+  │   │   └── chat/
+  │   │       └── route.ts
+  │   ├── chatbot/
+  │   │   └── page.tsx
+  │   ├── history/
+  │   ├── odds/
+  │   └── page.tsx
+  ├── components/
+  │   └── sidebar.tsx
+  ├── public/
+  ├── .env.local
+  ├── .gitignore
+  ├── package.json
+  └── package-lock.json
+  ```
+
+- Start the website using:
+
+  ```bash
+  npm run dev
+  ```
+
+- Open `http://localhost:3000/chatbot` to test the chatbot.
+- **Note:** `.env.local` is ignored by GitHub, so everyone needs to create their own. Never push API keys to GitHub.
+- The chatbot currently uses OpenRouter's free AI models. Database and prediction model integration will come later.
