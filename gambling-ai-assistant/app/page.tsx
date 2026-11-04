@@ -250,15 +250,7 @@ export default function Home() {
                 </div>
               ))}
             </div>
-
-            <p className="mt-3 text-xs text-gray-400">
-              Sample matchups and odds for demonstration only.
-            </p>
           </section>
-
-          <footer className="border-t border-gray-200 pt-6 text-xs text-gray-400">
-            © 2026 ALL THE ODDS · DEMO ONLY · NO REAL-MONEY WAGERING
-          </footer>
         </main>
       </div>
     </div>
