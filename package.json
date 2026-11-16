@@ -1,0 +1,7 @@
+{
+  "name": "all-the-odds-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "sh scripts/dev.sh"
+  }
+}
